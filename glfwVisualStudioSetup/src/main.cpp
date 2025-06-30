@@ -5,16 +5,20 @@
 #include <gl2d/gl2d.h>
 #include <openglErrorReporting.h>
 
-#include "imgui.h"
-#include "backends/imgui_impl_glfw.h"
-#include "backends/imgui_impl_opengl3.h"
-#include "imguiThemes.h"
+#include "MapPlane.h"
+#include <glm/gtc/matrix_transform.hpp>
 
 static void error_callback(int error, const char *description)
 {
 	std::cout << "Error: " << description << "\n";
 }
 
+// --- MapPlane instance ---
+// Map proportions from map.png: 4592x3196
+constexpr float MAP_WIDTH = 4.592f;
+constexpr float MAP_HEIGHT = 3.196f;
+constexpr float MAP_THICKNESS = 0.02f;
+MapPlane* g_mapPlane = nullptr;
 
 int main(void)
 {
@@ -53,44 +57,20 @@ int main(void)
 	//glfwSwapInterval(1); //vsync
 
 
-#pragma region imgui
-#if REMOVE_IMGUI == 0
-	ImGui::CreateContext();
-	//ImGui::StyleColorsDark();				//you can use whatever imgui theme you like!
-	imguiThemes::yellow();
-	//imguiThemes::gray();
-	//imguiThemes::green();
-	//imguiThemes::red();
-	//imguiThemes::embraceTheDarkness();
-
-	ImGuiIO &io = ImGui::GetIO(); (void)io;
-	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;           // Enable Docking
-	io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
-	//io.ConfigViewportsNoAutoMerge = true;
-	//io.ConfigViewportsNoTaskBarIcon = true;
-
-	io.FontGlobalScale = 2.0f; //make text bigger please!
-
-	ImGuiStyle &style = ImGui::GetStyle();
-	if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
-	{
-		//style.WindowRounding = 0.0f;
-		style.Colors[ImGuiCol_WindowBg].w = 0.f;
-		style.Colors[ImGuiCol_DockingEmptyBg].w = 0.f;
-	}
-
-	ImGui_ImplGlfw_InitForOpenGL(window, true);
-	ImGui_ImplOpenGL3_Init("#version 330");
-#endif
-#pragma endregion
-
-
-
 	gl2d::init();
 	gl2d::Renderer2D renderer;
 	renderer.create();
+
+	// Create map plane
+	g_mapPlane = new MapPlane(MAP_WIDTH, MAP_HEIGHT, MAP_THICKNESS);
+	if (!g_mapPlane->loadTexture("assets/map.png")) {
+		fprintf(stderr, "Failed to load map texture!\n");
+		return -1;
+	}
+	if (!g_mapPlane->initialize()) {
+		fprintf(stderr, "Failed to initialize map plane!\n");
+		return -1;
+	}
 
 	while (!glfwWindowShouldClose(window))
 	{
@@ -99,55 +79,25 @@ int main(void)
 		glViewport(0, 0, width, height);
 		glClear(GL_COLOR_BUFFER_BIT);
 
-	#pragma region imgui
-		ImGui_ImplOpenGL3_NewFrame();
-		ImGui_ImplGlfw_NewFrame();
-		ImGui::NewFrame();
-		ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
-	#pragma endregion
 
 
 		renderer.updateWindowMetrics(width, height);
 
+		glad_glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 		static glm::vec3 color = {1,0,0};
 
-		renderer.renderRectangle({0,0, 100, 100}, {color,1});
+		// Camera setup: look at the map from an angle
+		glm::mat4 view = glm::lookAt(
+			glm::vec3(0, -4, 2), // Camera position
+			glm::vec3(0, 0, 0),  // Look at center
+			glm::vec3(0, 0, 1)   // Up vector
+		);
+		glm::mat4 proj = glm::perspective(glm::radians(45.0f), (float)width/height, 0.1f, 100.0f);
+		glm::mat4 viewProj = proj * view;
+		// Render map
+		g_mapPlane->draw(viewProj);
 
 		renderer.flush();
-
-
-		ImGui::Begin("Test");
-		ImGui::Text("Hello world!");
-		ImGui::Button("Press me!");
-		ImGui::ColorEdit3("Color!", &color[0]);
-		ImGui::End();
-
-		ImGui::Begin("Test2");
-		ImGui::Text("Hello world!2");
-		ImGui::Button("Press me!2");
-		static float a = 0;
-		ImGui::SliderFloat("Slidy", &a, 0, 1);
-		ImGui::End();
-
-
-	#pragma region imgui
-		ImGui::Render();
-		int display_w, display_h;
-		glfwGetFramebufferSize(window, &display_w, &display_h);
-		glViewport(0, 0, display_w, display_h);
-		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
-		// Update and Render additional Platform Windows
-		// (Platform functions may change the current OpenGL context, so we save/restore it to make it easier to paste this code elsewhere.
-		//  For this specific demo app we could also call glfwMakeContextCurrent(window) directly)
-		if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
-		{
-			GLFWwindow *backup_current_context = glfwGetCurrentContext();
-			ImGui::UpdatePlatformWindows();
-			ImGui::RenderPlatformWindowsDefault();
-			glfwMakeContextCurrent(backup_current_context);
-		}
-	#pragma endregion
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
@@ -156,6 +106,8 @@ int main(void)
 	glfwDestroyWindow(window);
 
 	glfwTerminate();
+
+	delete g_mapPlane;
 
 	return 0;
 }

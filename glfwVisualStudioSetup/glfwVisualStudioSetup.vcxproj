@@ -172,7 +172,19 @@
     <ClCompile Include="..\dependences\stb_image\src\stb_image.cpp" />
     <ClCompile Include="..\dependences\stb_truetype\src\stb_truetype.cpp" />
     <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\MapPlane.cpp" />
     <ClCompile Include="src\openglErrorReporting.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="assets\map.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="dataset\data.csv" />
+    <None Include="imgui.ini" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\openglErrorReporting.h" />
+    <ClInclude Include="src\MapPlane.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
