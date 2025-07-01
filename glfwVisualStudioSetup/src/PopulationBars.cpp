@@ -89,7 +89,9 @@ void PopulationBars::createBarGeometry() {
     for (const auto& bar : bars) {
         float px = (bar.x / IMAGE_WIDTH * mapWidth) - (mapWidth * 0.5f);
         float py = (mapHeight * 0.5f) - (bar.y / IMAGE_HEIGHT * mapHeight);
-        float h = (std::log(bar.density + 1.0f) / std::log(maxDensity + 1.0f)) * maxBarHeight;
+        float h = logScale
+            ? (std::log(bar.density + 1.0f) / std::log(maxDensity + 1.0f)) * maxBarHeight
+            : (bar.density / maxDensity) * maxBarHeight;
         glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(px, py, mapThickness/2.0f));
         model = glm::scale(model, glm::vec3(0.08f, 0.08f, h));
         // Remove: model = glm::translate(model, glm::vec3(0,0,0.5f));
@@ -250,4 +252,11 @@ glm::vec2 PopulationBars::getBarScreenPos(int idx, const glm::mat4& viewProj, in
     float x = (pos.x * 0.5f + 0.5f) * screenWidth;
     float y = (1.0f - (pos.y * 0.5f + 0.5f)) * screenHeight;
     return glm::vec2(x, y);
+}
+
+void PopulationBars::setLogScale(bool logScale_) {
+    if (logScale != logScale_) {
+        logScale = logScale_;
+        createBarGeometry();
+    }
 } 

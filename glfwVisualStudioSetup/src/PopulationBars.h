@@ -20,6 +20,8 @@ public:
     float getBarDensity(int idx) const;
     glm::vec2 getBarScreenPos(int idx, const glm::mat4& viewProj, int screenWidth, int screenHeight) const;
     int getBarCount() const { return (int)bars.size(); }
+    void setLogScale(bool logScale);
+    bool getLogScale() const { return logScale; }
 private:
     std::vector<PopulationBarData> bars;
     std::vector<glm::mat4> instanceMatrices;
@@ -28,6 +30,7 @@ private:
     GLuint shaderProgram = 0;
     bool initialized = false;
     float mapWidth = 1.0f, mapHeight = 1.0f, mapThickness = 0.01f;
+    bool logScale = true;
     void createBarGeometry();
     bool createShaders();
 }; 

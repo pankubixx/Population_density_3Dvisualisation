@@ -94,6 +94,16 @@ int main()
 			ImGui::EndTooltip();
 		}
 
+		// --- ImGui sidebar on the right ---
+		ImGui::SetNextWindowPos(ImVec2(width - 300, 0), ImGuiCond_Always);
+		ImGui::SetNextWindowSize(ImVec2(300, (float)height), ImGuiCond_Always);
+		ImGui::Begin("Settings", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
+		bool logScale = g_populationBars->getLogScale();
+		if (ImGui::Checkbox("Logarithmic scale", &logScale)) {
+			g_populationBars->setLogScale(logScale);
+		}
+		ImGui::End();
+
 		// --- ImGui render ---
 		ImGui::Render();
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
