@@ -174,17 +174,20 @@
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\MapPlane.cpp" />
     <ClCompile Include="src\openglErrorReporting.cpp" />
+    <ClCompile Include="src\PopulationBars.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="assets\map.png" />
   </ItemGroup>
   <ItemGroup>
     <None Include="dataset\data.csv" />
+    <None Include="dataset\data_2025.csv" />
     <None Include="imgui.ini" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\openglErrorReporting.h" />
     <ClInclude Include="src\MapPlane.h" />
+    <ClInclude Include="src\PopulationBars.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
