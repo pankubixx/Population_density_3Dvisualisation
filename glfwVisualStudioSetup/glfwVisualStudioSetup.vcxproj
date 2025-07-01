@@ -175,9 +175,11 @@
     <ClCompile Include="src\MapPlane.cpp" />
     <ClCompile Include="src\openglErrorReporting.cpp" />
     <ClCompile Include="src\PopulationBars.cpp" />
+    <ClCompile Include="src\Skybox.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="assets\map.png" />
+    <Image Include="assets\skybox.jpg" />
   </ItemGroup>
   <ItemGroup>
     <None Include="dataset\data.csv" />
@@ -188,6 +190,7 @@
     <ClInclude Include="include\openglErrorReporting.h" />
     <ClInclude Include="src\MapPlane.h" />
     <ClInclude Include="src\PopulationBars.h" />
+    <ClInclude Include="src\Skybox.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

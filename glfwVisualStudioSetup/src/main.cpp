@@ -11,6 +11,7 @@
 #include "imgui.h"
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_opengl3.h"
+#include "Skybox.h"
 
 static void error_callback(int error, const char *description)
 {
@@ -22,6 +23,7 @@ constexpr float MAP_HEIGHT = 3.196f;
 constexpr float MAP_THICKNESS = 0.02f;
 MapPlane* g_mapPlane = nullptr;
 PopulationBars* g_populationBars = nullptr;
+Skybox skybox;
 
 struct CameraState {
 	glm::vec3 position = glm::vec3(0, -4, 2);
@@ -64,6 +66,12 @@ int main()
 	if (!g_populationBars->loadFromCSV("dataset/data_2025.csv") ||
 		!g_populationBars->initialize(MAP_WIDTH, MAP_HEIGHT, MAP_THICKNESS)) {
 		std::cerr << "Failed to load or initialize population bars!\n";
+		return -1;
+	}
+
+	// Initialize skybox
+	if (!skybox.loadTexture("assets/skybox.jpg") || !skybox.initialize()) {
+		std::cerr << "Failed to initialize skybox!" << std::endl;
 		return -1;
 	}
 
@@ -133,6 +141,11 @@ int main()
 		glm::mat4 view = glm::lookAt(camera.position, target, camera.up);
 		glm::mat4 proj = glm::perspective(glm::radians(45.0f), (float)width/height, 0.1f, 100.0f);
 		glm::mat4 viewProj = proj * view;
+
+		// Remove translation from view matrix for skybox
+		glm::mat4 viewNoTrans = glm::mat4(glm::mat3(view));
+		glm::mat4 skyboxVP = proj * viewNoTrans;
+		skybox.draw(viewNoTrans);
 
 		// --- ImGui frame start ---
 		ImGui_ImplOpenGL3_NewFrame();
