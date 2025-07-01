@@ -1,3 +1,4 @@
+
 #define GLFW_INCLUDE_NONE
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -63,7 +64,7 @@ int main()
 		return -1;
 	}
 	g_populationBars = new PopulationBars();
-	if (!g_populationBars->loadFromCSV("dataset/data_2025.csv") ||
+	if (!g_populationBars->loadFromCSV("dataset/dataset.csv") ||
 		!g_populationBars->initialize(MAP_WIDTH, MAP_HEIGHT, MAP_THICKNESS)) {
 		std::cerr << "Failed to load or initialize population bars!\n";
 		return -1;
@@ -76,6 +77,10 @@ int main()
 	}
 
 	CameraState camera;
+	static int selectedYear = 2025;
+	static bool sliderActive = false;
+	int minYear = g_populationBars->minYear;
+	int maxYear = g_populationBars->maxYear;
 
 	while (!glfwWindowShouldClose(window))
 	{
@@ -86,9 +91,9 @@ int main()
 		glEnable(GL_DEPTH_TEST);
 
 		// --- Camera controls ---
+		bool blockCamera = sliderActive;
 		float moveSpeed = 0.05f;
 		float rotSpeed = 0.02f;
-		// Calculate forward and right vectors in X/Y plane
 		glm::vec3 forward = glm::normalize(glm::vec3(
 			cos(camera.pitch) * sin(camera.yaw),
 			cos(camera.pitch) * cos(camera.yaw),
@@ -96,38 +101,18 @@ int main()
 		));
 		glm::vec3 right = glm::normalize(glm::cross(forward, camera.up));
 		glm::vec3 upMove = camera.up;
-		if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) camera.position += moveSpeed * glm::vec3(forward.x, forward.y, 0.0f);
-		if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) camera.position -= moveSpeed * glm::vec3(forward.x, forward.y, 0.0f);
-		if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) camera.position -= moveSpeed * right;
-		if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) camera.position += moveSpeed * right;
-		if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) camera.position += moveSpeed * upMove;
-		if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) camera.position -= moveSpeed * upMove;
-		if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS) camera.reset();
-		// Arrow keys for rotation
-		if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) camera.pitch += rotSpeed;
-		if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) camera.pitch -= rotSpeed;
-		if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS) camera.yaw -= rotSpeed;
-		if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS) camera.yaw += rotSpeed;
-		// Mouse drag to rotate camera (lower sensitivity)
-		static bool dragging = false;
-		static double lastX = 0, lastY = 0;
-		if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
-			double x, y;
-			glfwGetCursorPos(window, &x, &y);
-			if (!dragging) {
-				dragging = true;
-				lastX = x;
-				lastY = y;
-			} else {
-				float dx = float(x - lastX);
-				float dy = float(y - lastY);
-				camera.yaw += dx * 0.003f;
-				camera.pitch += dy * 0.003f;
-				lastX = x;
-				lastY = y;
-			}
-		} else {
-			dragging = false;
+		if (!blockCamera) {
+			if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) camera.position += moveSpeed * glm::vec3(forward.x, forward.y, 0.0f);
+			if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) camera.position -= moveSpeed * glm::vec3(forward.x, forward.y, 0.0f);
+			if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) camera.position -= moveSpeed * right;
+			if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) camera.position += moveSpeed * right;
+			if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) camera.position += moveSpeed * upMove;
+			if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) camera.position -= moveSpeed * upMove;
+			if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS) camera.reset();
+			if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) camera.pitch += rotSpeed;
+			if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) camera.pitch -= rotSpeed;
+			if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS) camera.yaw -= rotSpeed;
+			if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS) camera.yaw += rotSpeed;
 		}
 		// Clamp pitch
 		camera.pitch = glm::clamp(camera.pitch, -glm::half_pi<float>() + 0.1f, glm::half_pi<float>() - 0.1f);
@@ -169,6 +154,75 @@ int main()
 		ImGui::BulletText("Q/E: Up/Down");
 		ImGui::BulletText("R: Reset camera");
 		ImGui::End();
+
+		// --- ImGui bottom bar for year slider ---
+
+		// 1. Determine padding and font info (these are already set in your code)
+		// The FramePadding's Y component (32) is crucial for vertical sizing.
+		// This means elements with frames (like the slider) will have 32px top + 32px bottom padding.
+		// Total vertical padding for a framed item = 2 * FramePadding.y = 2 * 32 = 64 pixels.
+		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(34, 32)); // Y is 32
+
+		// Get text line height (approximate if font not loaded yet, or use GetTextLineHeight())
+		float textLineHeight = ImGui::GetTextLineHeight(); // This should be retrieved after PushFont if fonts are critical for size
+		// or a reasonable default value used.
+
+// Let's assume you want a certain vertical margin between elements and from window edges.
+		float topMargin = 32.0f; // This is your initial ImGui::SetCursorPosY(32);
+		float verticalSpacingBetweenTextAndSlider = 28.0f; // Calculated from (60 - 32)
+		float bottomMargin = 10.0f; // A desired margin at the bottom of the window
+
+		// Calculate the total required height
+		float calculatedWindowHeight = 0.0f;
+
+		// Height taken by the "Population Density Year" text
+		calculatedWindowHeight += topMargin; // Top margin for the text
+		calculatedWindowHeight += textLineHeight; // Height of the text itself
+
+		// Space between the text and the slider
+		calculatedWindowHeight += verticalSpacingBetweenTextAndSlider;
+
+		// Height taken by the slider
+		// The slider's visual height is its inherent height PLUS the frame padding (2 * ImGuiStyleVar_FramePadding.y)
+		// A common base height for a widget like a slider or button is ImGui::GetFrameHeight() or ImGui::GetFontSize() + 2*ImGuiStyleVar_FramePadding.y
+		// Given your PushStyleVar(..., 32) for FramePadding, the slider will be quite tall.
+		// The actual height of the slider grab handle and the line itself is smaller than the total frame height.
+		// A safe bet for a framed widget's height, considering frame padding:
+		calculatedWindowHeight += (ImGui::GetFontSize() + 2 * ImGui::GetStyle().FramePadding.y); // This uses the currently active FramePadding
+
+		// Add some bottom margin
+		calculatedWindowHeight += bottomMargin;
+
+
+		// Now, use this calculated height for your window
+		ImGui::SetNextWindowPos(ImVec2(0, height - calculatedWindowHeight), ImGuiCond_Always);
+		ImGui::SetNextWindowSize(ImVec2((float)width, calculatedWindowHeight), ImGuiCond_Always);
+		ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(60, 80, 180, 255));
+		ImGui::PushStyleColor(ImGuiCol_SliderGrab, IM_COL32(255, 180, 60, 255));
+		ImGui::PushStyleColor(ImGuiCol_SliderGrabActive, IM_COL32(255, 220, 100, 255));
+		ImGui::PushFont(io.Fonts->Fonts[0]);
+		ImGui::Begin("YearBar", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar);
+
+		// --- Content inside the window ---
+		// Your current cursor positions:
+		ImGui::SetCursorPosY(topMargin); // Start text at topMargin
+		ImGui::SetCursorPosX(40);
+		ImGui::Text("Population Density Year");
+
+		ImGui::SetCursorPosY(topMargin + textLineHeight + verticalSpacingBetweenTextAndSlider); // Position slider based on previous elements
+		ImGui::SetCursorPosX(40);
+		ImGui::PushItemWidth(width - 160);
+		sliderActive = ImGui::SliderInt("##YearSlider", &selectedYear, minYear, maxYear);
+		ImGui::PopItemWidth();
+		ImGui::SameLine();
+		// Make sure this text aligns with the slider, using the same Y position
+		ImGui::SetCursorPosY(topMargin + textLineHeight + verticalSpacingBetweenTextAndSlider);
+		ImGui::Text("%d", selectedYear);
+		ImGui::End();
+		ImGui::PopFont();
+		ImGui::PopStyleColor(3);
+		ImGui::PopStyleVar(); // Pop the style var AFTER the window is done rendering to apply to its calculations
+		g_populationBars->setYear(selectedYear);
 
 		// --- Picking ---
 		double mouseX, mouseY;

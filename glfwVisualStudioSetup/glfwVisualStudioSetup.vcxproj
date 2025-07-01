@@ -183,6 +183,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="dataset\data.csv" />
+    <None Include="dataset\dataset.csv" />
     <None Include="dataset\data_2025.csv" />
     <None Include="imgui.ini" />
   </ItemGroup>

@@ -8,7 +8,10 @@
 
 bool PopulationBars::loadFromCSV(const std::string& path) {
     bars.clear();
-    std::ifstream file(path);
+    yearToBars.clear();
+    minYear = std::numeric_limits<int>::max();
+    maxYear = std::numeric_limits<int>::min();
+    std::ifstream file("dataset/dataset.csv");
     if (!file.is_open()) {
         std::cerr << "Failed to open CSV: " << path << std::endl;
         return false;
@@ -17,10 +20,10 @@ bool PopulationBars::loadFromCSV(const std::string& path) {
     std::getline(file, line); // skip header
     while (std::getline(file, line)) {
         std::stringstream ss(line);
-        std::string name, code, year, density, x, y;
+        std::string name, code, yearStr, density, x, y;
         std::getline(ss, name, ',');
         std::getline(ss, code, ',');
-        std::getline(ss, year, ',');
+        std::getline(ss, yearStr, ',');
         std::getline(ss, density, ',');
         std::getline(ss, x, ',');
         std::getline(ss, y, ',');
@@ -29,8 +32,12 @@ bool PopulationBars::loadFromCSV(const std::string& path) {
         bar.density = std::stof(density);
         bar.x = std::stof(x);
         bar.y = std::stof(y);
-        bars.push_back(bar);
+        int year = std::stoi(yearStr);
+        yearToBars[year].push_back(bar);
+        if (year < minYear) minYear = year;
+        if (year > maxYear) maxYear = year;
     }
+    setYear(currentYear);
     return true;
 }
 
@@ -259,4 +266,15 @@ void PopulationBars::setLogScale(bool logScale_) {
         logScale = logScale_;
         createBarGeometry();
     }
+}
+
+void PopulationBars::setYear(int year) {
+    currentYear = year;
+    auto it = yearToBars.find(year);
+    if (it != yearToBars.end()) {
+        bars = it->second;
+    } else {
+        bars.clear();
+    }
+    if (initialized) createBarGeometry();
 } 

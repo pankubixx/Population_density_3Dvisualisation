@@ -3,6 +3,7 @@
 #include <vector>
 #include <glad/glad.h>
 #include <glm/glm.hpp>
+#include <unordered_map>
 
 struct PopulationBarData {
     std::string name;
@@ -22,6 +23,13 @@ public:
     int getBarCount() const { return (int)bars.size(); }
     void setLogScale(bool logScale);
     bool getLogScale() const { return logScale; }
+    void setYear(int year);
+    int getCurrentYear() const { return currentYear; }
+    int minYear = 1900;
+    int maxYear = 2100;
+    std::pair<int, int> getYearRange() const { return {minYear, maxYear}; }
+    std::unordered_map<int, std::vector<PopulationBarData>> yearToBars;
+    int currentYear = 2025;
 private:
     std::vector<PopulationBarData> bars;
     std::vector<glm::mat4> instanceMatrices;
