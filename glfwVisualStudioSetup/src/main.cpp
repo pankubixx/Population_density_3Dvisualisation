@@ -4,6 +4,7 @@
 #include <iostream>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/constants.hpp>
 #include "MapPlane.h"
 #include "PopulationBars.h"
 // ImGui
@@ -21,6 +22,18 @@ constexpr float MAP_HEIGHT = 3.196f;
 constexpr float MAP_THICKNESS = 0.02f;
 MapPlane* g_mapPlane = nullptr;
 PopulationBars* g_populationBars = nullptr;
+
+struct CameraState {
+	glm::vec3 position = glm::vec3(0, -4, 2);
+	float yaw = 0.0f;   // left/right (in radians)
+	float pitch = -0.4f; // up/down (in radians)
+	glm::vec3 up = glm::vec3(0, 0, 1);
+	void reset() {
+		position = glm::vec3(0, -4, 2);
+		yaw = 0.0f;
+		pitch = -0.4f;
+	}
+};
 
 int main()
 {
@@ -54,6 +67,8 @@ int main()
 		return -1;
 	}
 
+	CameraState camera;
+
 	while (!glfwWindowShouldClose(window))
 	{
 		int width, height;
@@ -62,12 +77,60 @@ int main()
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		glEnable(GL_DEPTH_TEST);
 
-		// Camera
-		glm::mat4 view = glm::lookAt(
-			glm::vec3(0, -4, 2), // Camera position
-			glm::vec3(0, 0, 0),  // Look at center
-			glm::vec3(0, 0, 1)   // Up vector
+		// --- Camera controls ---
+		float moveSpeed = 0.05f;
+		float rotSpeed = 0.02f;
+		// Calculate forward and right vectors in X/Y plane
+		glm::vec3 forward = glm::normalize(glm::vec3(
+			cos(camera.pitch) * sin(camera.yaw),
+			cos(camera.pitch) * cos(camera.yaw),
+			sin(camera.pitch)
+		));
+		glm::vec3 right = glm::normalize(glm::cross(forward, camera.up));
+		glm::vec3 upMove = camera.up;
+		if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) camera.position += moveSpeed * glm::vec3(forward.x, forward.y, 0.0f);
+		if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) camera.position -= moveSpeed * glm::vec3(forward.x, forward.y, 0.0f);
+		if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) camera.position -= moveSpeed * right;
+		if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) camera.position += moveSpeed * right;
+		if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) camera.position += moveSpeed * upMove;
+		if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) camera.position -= moveSpeed * upMove;
+		if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS) camera.reset();
+		// Arrow keys for rotation
+		if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) camera.pitch += rotSpeed;
+		if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) camera.pitch -= rotSpeed;
+		if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS) camera.yaw -= rotSpeed;
+		if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS) camera.yaw += rotSpeed;
+		// Mouse drag to rotate camera (lower sensitivity)
+		static bool dragging = false;
+		static double lastX = 0, lastY = 0;
+		if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
+			double x, y;
+			glfwGetCursorPos(window, &x, &y);
+			if (!dragging) {
+				dragging = true;
+				lastX = x;
+				lastY = y;
+			} else {
+				float dx = float(x - lastX);
+				float dy = float(y - lastY);
+				camera.yaw += dx * 0.003f;
+				camera.pitch += dy * 0.003f;
+				lastX = x;
+				lastY = y;
+			}
+		} else {
+			dragging = false;
+		}
+		// Clamp pitch
+		camera.pitch = glm::clamp(camera.pitch, -glm::half_pi<float>() + 0.1f, glm::half_pi<float>() - 0.1f);
+		// Calculate direction
+		glm::vec3 dir = glm::vec3(
+			cos(camera.pitch) * sin(camera.yaw),
+			cos(camera.pitch) * cos(camera.yaw),
+			sin(camera.pitch)
 		);
+		glm::vec3 target = camera.position + dir;
+		glm::mat4 view = glm::lookAt(camera.position, target, camera.up);
 		glm::mat4 proj = glm::perspective(glm::radians(45.0f), (float)width/height, 0.1f, 100.0f);
 		glm::mat4 viewProj = proj * view;
 
@@ -75,6 +138,24 @@ int main()
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
+
+		// --- ImGui sidebar on the right ---
+		ImGui::SetNextWindowPos(ImVec2(width - 300, 0), ImGuiCond_Always);
+		ImGui::SetNextWindowSize(ImVec2(300, (float)height), ImGuiCond_Always);
+		ImGui::Begin("Settings", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
+		bool logScale = g_populationBars->getLogScale();
+		if (ImGui::Checkbox("Logarithmic scale", &logScale)) {
+			g_populationBars->setLogScale(logScale);
+		}
+		if (ImGui::Button("Reset Camera") || glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS) {
+			camera.reset();
+		}
+		ImGui::Text("Camera controls:");
+		ImGui::BulletText("WASD: Move in view plane");
+		ImGui::BulletText("Arrow keys or Mouse drag: Rotate");
+		ImGui::BulletText("Q/E: Up/Down");
+		ImGui::BulletText("R: Reset camera");
+		ImGui::End();
 
 		// --- Picking ---
 		double mouseX, mouseY;
@@ -93,16 +174,6 @@ int main()
 			ImGui::TextUnformatted(label.c_str());
 			ImGui::EndTooltip();
 		}
-
-		// --- ImGui sidebar on the right ---
-		ImGui::SetNextWindowPos(ImVec2(width - 300, 0), ImGuiCond_Always);
-		ImGui::SetNextWindowSize(ImVec2(300, (float)height), ImGuiCond_Always);
-		ImGui::Begin("Settings", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
-		bool logScale = g_populationBars->getLogScale();
-		if (ImGui::Checkbox("Logarithmic scale", &logScale)) {
-			g_populationBars->setLogScale(logScale);
-		}
-		ImGui::End();
 
 		// --- ImGui render ---
 		ImGui::Render();
