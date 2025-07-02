@@ -111,18 +111,10 @@ int main()
 		g_populationBars->updateVisibleBars(countryVisibility);
 	}
 
-	static int lastAppliedYear = -1;
-	if (lastAppliedYear != selectedYear) {
-		g_populationBars->setYear(selectedYear);
-		updateCountryList();
-		lastAppliedYear = selectedYear;
-	}
-	g_populationBars->updateVisibleBars(countryVisibility);
-
 	// Declare and assign all layout variables before use
-	float topMargin = 10.0f;
-	float verticalSpacingBetweenTextAndSlider = 8.0f;
-	float bottomMargin = 6.0f;
+	float topMargin = 2.0f;
+	float verticalSpacingBetweenTextAndSlider = 2.0f;
+	float bottomMargin = 2.0f;
 	float textLineHeight = ImGui::GetTextLineHeight();
 	float calculatedWindowHeight = 0.0f;
 	calculatedWindowHeight += topMargin;
@@ -206,9 +198,37 @@ int main()
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
 
+		// --- ImGui bottom bar for year slider ---
+		const float yearBarHeight = 64.0f;
+		ImGui::SetNextWindowPos(ImVec2(0.0f, static_cast<float>(height) - yearBarHeight), ImGuiCond_Always);
+		ImGui::SetNextWindowSize(ImVec2(static_cast<float>(width), yearBarHeight), ImGuiCond_Always);
+		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(12, 8)); // Chunkier slider
+		ImGui::PushFont(io.Fonts->Fonts[0]);
+		ImGui::Begin("YearBar", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar);
+		ImGui::SetCursorPosY(16.0f);
+		ImGui::SetCursorPosX(16.0f);
+		ImGui::Text("Population Density Year");
+		ImGui::SameLine(260.0f);
+		ImGui::PushItemWidth(static_cast<float>(width - 400));
+		sliderActive = ImGui::SliderInt("##YearSlider", &selectedYear, minYear, maxYear);
+		ImGui::PopItemWidth();
+		ImGui::SameLine();
+		ImGui::Text("%d", selectedYear);
+		ImGui::End();
+		ImGui::PopFont();
+		ImGui::PopStyleVar();
+
+		// After the slider, check for year change and update bars/country list
+		static int lastAppliedYear = -1;
+		if (lastAppliedYear != selectedYear) {
+			g_populationBars->setYear(selectedYear);
+			updateCountryList();
+			lastAppliedYear = selectedYear;
+		}
+
 		// --- ImGui sidebar on the right ---
 		ImGui::SetNextWindowPos(ImVec2(static_cast<float>(width) - 300.0f, 0.0f), ImGuiCond_Always);
-		ImGui::SetNextWindowSize(ImVec2(300.0f, static_cast<float>(height) - calculatedWindowHeight), ImGuiCond_Always);
+		ImGui::SetNextWindowSize(ImVec2(300.0f, static_cast<float>(height) - yearBarHeight), ImGuiCond_Always);
 		ImGui::Begin("Settings", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
 		bool logScale = g_populationBars->getLogScale();
 		if (ImGui::Checkbox("Logarithmic scale", &logScale)) {
@@ -227,7 +247,8 @@ int main()
 		ImGui::BulletText("R: Reset camera");
 		// --- Country checkboxes ---
 		if (ImGui::CollapsingHeader("Country Visibility", ImGuiTreeNodeFlags_DefaultOpen)) {
-			// Add Select All / Uncheck All buttons
+			float countryListHeight = ImGui::GetContentRegionAvail().y;
+			if (countryListHeight < 100.0f) countryListHeight = 100.0f;
 			if (ImGui::Button("Select All")) {
 				for (auto& kv : countryVisibility) kv.second = true;
 				g_populationBars->updateVisibleBars(countryVisibility);
@@ -237,7 +258,7 @@ int main()
 				for (auto& kv : countryVisibility) kv.second = false;
 				g_populationBars->updateVisibleBars(countryVisibility);
 			}
-			ImGui::BeginChild("CountryList", ImVec2(0, 200), true, ImGuiWindowFlags_HorizontalScrollbar);
+			ImGui::BeginChild("CountryList", ImVec2(0, countryListHeight), true, ImGuiWindowFlags_HorizontalScrollbar);
 			for (const auto& name : countryNames) {
 				bool& visible = countryVisibility[name];
 				ImGui::Checkbox(name.c_str(), &visible);
@@ -248,27 +269,6 @@ int main()
 
 		// Ensure bar visibility matches checkboxes every frame
 		g_populationBars->updateVisibleBars(countryVisibility);
-
-		// --- ImGui bottom bar for year slider ---
-		ImGui::SetNextWindowPos(ImVec2(0.0f, static_cast<float>(height) - calculatedWindowHeight), ImGuiCond_Always);
-		ImGui::SetNextWindowSize(ImVec2(static_cast<float>(width), calculatedWindowHeight), ImGuiCond_Always);
-		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(34, 10));
-		ImGui::PushFont(io.Fonts->Fonts[0]);
-		ImGui::Begin("YearBar", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar);
-		ImGui::SetCursorPosY(topMargin);
-		ImGui::SetCursorPosX(40);
-		ImGui::Text("Population Density Year");
-		ImGui::SetCursorPosY(topMargin + textLineHeight + verticalSpacingBetweenTextAndSlider);
-		ImGui::SetCursorPosX(40);
-		ImGui::PushItemWidth(static_cast<float>(width - 160));
-		sliderActive = ImGui::SliderInt("##YearSlider", &selectedYear, minYear, maxYear);
-		ImGui::PopItemWidth();
-		ImGui::SameLine();
-		ImGui::SetCursorPosY(topMargin + textLineHeight + verticalSpacingBetweenTextAndSlider);
-		ImGui::Text("%d", selectedYear);
-		ImGui::End();
-		ImGui::PopFont();
-		ImGui::PopStyleVar();
 
 		// Timelapse logic
 		double currentTime = glfwGetTime();
