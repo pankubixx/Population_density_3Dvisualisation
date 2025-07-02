@@ -13,6 +13,8 @@
 #include "backends/imgui_impl_opengl3.h"
 #include "Skybox.h"
 #include "imguiThemes.h"
+#include <unordered_map>
+#include <set>
 
 static void error_callback(int error, const char *description)
 {
@@ -84,6 +86,50 @@ int main()
 	static bool sliderActive = false;
 	int minYear = g_populationBars->minYear;
 	int maxYear = g_populationBars->maxYear;
+
+	// --- Country visibility state ---
+	static std::unordered_map<std::string, bool> countryVisibility;
+	static int lastYearForVisibility = -1;
+	static std::vector<std::string> countryNames;
+	// Helper to update country list and visibility when year changes
+	auto updateCountryList = [&]() {
+		countryNames.clear();
+		std::set<std::string> uniqueNames;
+		for (const auto& bar : g_populationBars->allBarsForYear) {
+			if (uniqueNames.insert(bar.name).second) {
+				countryNames.push_back(bar.name);
+				// Only set to true if not already present (preserve user toggles)
+				if (countryVisibility.find(bar.name) == countryVisibility.end()) {
+					countryVisibility[bar.name] = true;
+				}
+			}
+		}
+	};
+	if (lastYearForVisibility != selectedYear) {
+		updateCountryList();
+		lastYearForVisibility = selectedYear;
+		g_populationBars->updateVisibleBars(countryVisibility);
+	}
+
+	static int lastAppliedYear = -1;
+	if (lastAppliedYear != selectedYear) {
+		g_populationBars->setYear(selectedYear);
+		updateCountryList();
+		lastAppliedYear = selectedYear;
+	}
+	g_populationBars->updateVisibleBars(countryVisibility);
+
+	// Declare and assign all layout variables before use
+	float topMargin = 10.0f;
+	float verticalSpacingBetweenTextAndSlider = 8.0f;
+	float bottomMargin = 6.0f;
+	float textLineHeight = ImGui::GetTextLineHeight();
+	float calculatedWindowHeight = 0.0f;
+	calculatedWindowHeight += topMargin;
+	calculatedWindowHeight += textLineHeight;
+	calculatedWindowHeight += verticalSpacingBetweenTextAndSlider;
+	calculatedWindowHeight += (ImGui::GetFontSize() + 2 * ImGui::GetStyle().FramePadding.y);
+	calculatedWindowHeight += bottomMargin;
 
 	while (!glfwWindowShouldClose(window))
 	{
@@ -160,26 +206,9 @@ int main()
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
 
-		// Set style for slider
-		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(34, 10)); // Y is now 10 for a smaller slider
-
-		// Declare and assign all layout variables before use
-		float topMargin = 10.0f;
-		float verticalSpacingBetweenTextAndSlider = 8.0f;
-		float bottomMargin = 6.0f;
-		float textLineHeight = ImGui::GetTextLineHeight(); // after PushFont if you use fonts
-
-		// Calculate the total required height for the bottom slider
-		float calculatedWindowHeight = 0.0f;
-		calculatedWindowHeight += topMargin;
-		calculatedWindowHeight += textLineHeight;
-		calculatedWindowHeight += verticalSpacingBetweenTextAndSlider;
-		calculatedWindowHeight += (ImGui::GetFontSize() + 2 * ImGui::GetStyle().FramePadding.y);
-		calculatedWindowHeight += bottomMargin;
-
 		// --- ImGui sidebar on the right ---
-		ImGui::SetNextWindowPos(ImVec2((float)width - 300.0f, 0.0f), ImGuiCond_Always);
-		ImGui::SetNextWindowSize(ImVec2(300.0f, (float)height - calculatedWindowHeight), ImGuiCond_Always);
+		ImGui::SetNextWindowPos(ImVec2(static_cast<float>(width) - 300.0f, 0.0f), ImGuiCond_Always);
+		ImGui::SetNextWindowSize(ImVec2(300.0f, static_cast<float>(height) - calculatedWindowHeight), ImGuiCond_Always);
 		ImGui::Begin("Settings", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
 		bool logScale = g_populationBars->getLogScale();
 		if (ImGui::Checkbox("Logarithmic scale", &logScale)) {
@@ -196,11 +225,33 @@ int main()
 		ImGui::BulletText("Arrow keys: Rotate");
 		ImGui::BulletText("Q/E: Up/Down");
 		ImGui::BulletText("R: Reset camera");
+		// --- Country checkboxes ---
+		if (ImGui::CollapsingHeader("Country Visibility", ImGuiTreeNodeFlags_DefaultOpen)) {
+			// Add Select All / Uncheck All buttons
+			if (ImGui::Button("Select All")) {
+				for (auto& kv : countryVisibility) kv.second = true;
+				g_populationBars->updateVisibleBars(countryVisibility);
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("Uncheck All")) {
+				for (auto& kv : countryVisibility) kv.second = false;
+				g_populationBars->updateVisibleBars(countryVisibility);
+			}
+			ImGui::BeginChild("CountryList", ImVec2(0, 200), true, ImGuiWindowFlags_HorizontalScrollbar);
+			for (const auto& name : countryNames) {
+				bool& visible = countryVisibility[name];
+				ImGui::Checkbox(name.c_str(), &visible);
+			}
+			ImGui::EndChild();
+		}
 		ImGui::End();
 
+		// Ensure bar visibility matches checkboxes every frame
+		g_populationBars->updateVisibleBars(countryVisibility);
+
 		// --- ImGui bottom bar for year slider ---
-		ImGui::SetNextWindowPos(ImVec2(0.0f, (float)height - calculatedWindowHeight), ImGuiCond_Always);
-		ImGui::SetNextWindowSize(ImVec2((float)width, calculatedWindowHeight), ImGuiCond_Always);
+		ImGui::SetNextWindowPos(ImVec2(0.0f, static_cast<float>(height) - calculatedWindowHeight), ImGuiCond_Always);
+		ImGui::SetNextWindowSize(ImVec2(static_cast<float>(width), calculatedWindowHeight), ImGuiCond_Always);
 		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(34, 10));
 		ImGui::PushFont(io.Fonts->Fonts[0]);
 		ImGui::Begin("YearBar", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar);
@@ -209,7 +260,7 @@ int main()
 		ImGui::Text("Population Density Year");
 		ImGui::SetCursorPosY(topMargin + textLineHeight + verticalSpacingBetweenTextAndSlider);
 		ImGui::SetCursorPosX(40);
-		ImGui::PushItemWidth(width - 160);
+		ImGui::PushItemWidth(static_cast<float>(width - 160));
 		sliderActive = ImGui::SliderInt("##YearSlider", &selectedYear, minYear, maxYear);
 		ImGui::PopItemWidth();
 		ImGui::SameLine();
@@ -218,7 +269,6 @@ int main()
 		ImGui::End();
 		ImGui::PopFont();
 		ImGui::PopStyleVar();
-		g_populationBars->setYear(selectedYear);
 
 		// Timelapse logic
 		double currentTime = glfwGetTime();

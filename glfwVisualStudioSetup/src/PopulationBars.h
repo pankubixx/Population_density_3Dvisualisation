@@ -30,8 +30,10 @@ public:
     std::pair<int, int> getYearRange() const { return {minYear, maxYear}; }
     std::unordered_map<int, std::vector<PopulationBarData>> yearToBars;
     int currentYear = 2025;
+    std::vector<PopulationBarData> allBarsForYear; // All bars for the current year (public)
+    void updateVisibleBars(const std::unordered_map<std::string, bool>& visibility);
 private:
-    std::vector<PopulationBarData> bars;
+    std::vector<PopulationBarData> bars; // Only one bars vector, used everywhere
     std::vector<glm::mat4> instanceMatrices;
     std::vector<float> instanceHeights;
     GLuint vao = 0, vbo = 0, instanceVBO = 0, heightVBO = 0;

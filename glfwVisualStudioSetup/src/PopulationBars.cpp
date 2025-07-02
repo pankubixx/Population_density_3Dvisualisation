@@ -6,6 +6,13 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <cmath>
 
+// Helper to trim whitespace from strings
+static std::string trim(const std::string& s) {
+    size_t start = s.find_first_not_of(" \t\r\n");
+    size_t end = s.find_last_not_of(" \t\r\n");
+    return (start == std::string::npos) ? "" : s.substr(start, end - start + 1);
+}
+
 bool PopulationBars::loadFromCSV(const std::string& path) {
     bars.clear();
     yearToBars.clear();
@@ -29,7 +36,7 @@ bool PopulationBars::loadFromCSV(const std::string& path) {
         std::getline(ss, x, ',');
         std::getline(ss, y, ',');
         PopulationBarData bar;
-        bar.name = name;
+        bar.name = trim(name);
         bar.density = std::stof(density);
         bar.x = std::stof(x);
         bar.y = std::stof(y);
@@ -57,6 +64,12 @@ bool PopulationBars::initialize(float mapWidth_, float mapHeight_, float mapThic
 }
 
 void PopulationBars::createBarGeometry() {
+    // Delete old buffers and VAO
+    if (vao) { glDeleteVertexArrays(1, &vao); vao = 0; }
+    if (vbo) { glDeleteBuffers(1, &vbo); vbo = 0; }
+    if (instanceVBO) { glDeleteBuffers(1, &instanceVBO); instanceVBO = 0; }
+    if (heightVBO) { glDeleteBuffers(1, &heightVBO); heightVBO = 0; }
+
     // 8 vertices, 12 triangles (36 indices)
     float v[] = {
         -0.5f, -0.5f, 0.0f,
@@ -83,16 +96,36 @@ void PopulationBars::createBarGeometry() {
         vertices.push_back(v[vi*3+1]);
         vertices.push_back(v[vi*3+2]);
     }
+
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
+
     glGenBuffers(1, &vbo);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferData(GL_ARRAY_BUFFER, vertices.size()*sizeof(float), vertices.data(), GL_STATIC_DRAW);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3*sizeof(float), (void*)0);
+
     // Instance data: model matrix (position, scale)
     instanceMatrices.clear();
     instanceHeights.clear();
+
+    if (bars.empty()) {
+        // Upload empty buffers to OpenGL
+        if (instanceVBO) { glDeleteBuffers(1, &instanceVBO); instanceVBO = 0; }
+        if (heightVBO) { glDeleteBuffers(1, &heightVBO); heightVBO = 0; }
+        glGenBuffers(1, &instanceVBO);
+        glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+        glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
+        glGenBuffers(1, &heightVBO);
+        glBindBuffer(GL_ARRAY_BUFFER, heightVBO);
+        glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
+        glBindVertexArray(0);
+        instanceMatrices.clear();
+        instanceHeights.clear();
+        return;
+    }
+
     float maxDensity = globalMaxDensity > 0.0f ? globalMaxDensity : 1.0f;
     const float maxBarHeight = 1.5f;
     const float IMAGE_WIDTH = 4592.0f;
@@ -105,7 +138,6 @@ void PopulationBars::createBarGeometry() {
             : (bar.density / maxDensity) * maxBarHeight;
         glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(px, py, mapThickness/2.0f));
         model = glm::scale(model, glm::vec3(0.08f, 0.08f, h));
-        // Remove: model = glm::translate(model, glm::vec3(0,0,0.5f));
         instanceMatrices.push_back(model);
         instanceHeights.push_back(h / maxBarHeight); // normalized height for color
     }
@@ -117,12 +149,14 @@ void PopulationBars::createBarGeometry() {
         glVertexAttribPointer(1 + i, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)(sizeof(float)*i*4));
         glVertexAttribDivisor(1 + i, 1);
     }
+
     glGenBuffers(1, &heightVBO);
     glBindBuffer(GL_ARRAY_BUFFER, heightVBO);
     glBufferData(GL_ARRAY_BUFFER, instanceHeights.size()*sizeof(float), instanceHeights.data(), GL_STATIC_DRAW);
     glEnableVertexAttribArray(5);
     glVertexAttribPointer(5, 1, GL_FLOAT, GL_FALSE, sizeof(float), (void*)0);
     glVertexAttribDivisor(5, 1);
+
     glBindVertexArray(0);
 }
 
@@ -211,6 +245,9 @@ bool PopulationBars::createShaders() {
 
 void PopulationBars::draw(const glm::mat4& viewProjMatrix, int hoveredBarIdx) const {
     if (!initialized) return;
+    if (bars.size() == 0) {
+        return;
+    }
     glUseProgram(shaderProgram);
     glBindVertexArray(vao);
     glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "uViewProj"), 1, GL_FALSE, glm::value_ptr(viewProjMatrix));
@@ -277,8 +314,21 @@ void PopulationBars::setYear(int year) {
     auto it = yearToBars.find(year);
     if (it != yearToBars.end()) {
         bars = it->second;
+        allBarsForYear = it->second;
     } else {
         bars.clear();
+        allBarsForYear.clear();
+    }
+    if (initialized) createBarGeometry();
+}
+
+void PopulationBars::updateVisibleBars(const std::unordered_map<std::string, bool>& visibility) {
+    bars.clear();
+    for (const auto& bar : allBarsForYear) {
+        auto it = visibility.find(bar.name);
+        if (it == visibility.end() || it->second) {
+            bars.push_back(bar);
+        }
     }
     if (initialized) createBarGeometry();
 } 
