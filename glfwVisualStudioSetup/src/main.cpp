@@ -1,4 +1,3 @@
-
 #define GLFW_INCLUDE_NONE
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -101,7 +100,25 @@ int main()
 		));
 		glm::vec3 right = glm::normalize(glm::cross(forward, camera.up));
 		glm::vec3 upMove = camera.up;
-		if (!blockCamera) {
+
+		// Camera animation logic
+		static float animationTime = 0.0f;
+		static bool animateCamera = false;
+		if (animateCamera) {
+			animationTime += 0.003f; // Speed of animation
+			float radius = 4.0f; // Distance from map center
+			float height = 2.0f; // Height above map
+			glm::vec3 mapCenter = glm::vec3(0.0f, 0.0f, 0.0f);
+			camera.position = glm::vec3(
+				radius * sin(animationTime),
+				radius * cos(animationTime),
+				height
+			);
+			// Look at map center
+			glm::vec3 dir = glm::normalize(mapCenter - camera.position);
+			camera.yaw = atan2(dir.x, dir.y);
+			camera.pitch = asin(dir.z);
+		} else if (!blockCamera) {
 			if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) camera.position += moveSpeed * glm::vec3(forward.x, forward.y, 0.0f);
 			if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) camera.position -= moveSpeed * glm::vec3(forward.x, forward.y, 0.0f);
 			if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) camera.position -= moveSpeed * right;
@@ -145,6 +162,9 @@ int main()
 		if (ImGui::Checkbox("Logarithmic scale", &logScale)) {
 			g_populationBars->setLogScale(logScale);
 		}
+
+		ImGui::Checkbox("Animate camera around map", &animateCamera);
+
 		if (ImGui::Button("Reset Camera") || glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS) {
 			camera.reset();
 		}
