@@ -12,6 +12,7 @@
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_opengl3.h"
 #include "Skybox.h"
+#include "imguiThemes.h"
 
 static void error_callback(int error, const char *description)
 {
@@ -55,6 +56,9 @@ int main()
 	ImGui::StyleColorsDark();
 	ImGui_ImplGlfw_InitForOpenGL(window, true);
 	ImGui_ImplOpenGL3_Init("#version 330");
+
+	// Apply a custom ImGui theme
+	imguiThemes::embraceTheDarkness();
 
 	// Map and bars
 	g_mapPlane = new MapPlane(MAP_WIDTH, MAP_HEIGHT, MAP_THICKNESS);
@@ -156,98 +160,64 @@ int main()
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
 
+		// Set style for slider
+		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(34, 10)); // Y is now 10 for a smaller slider
+
+		// Declare and assign all layout variables before use
+		float topMargin = 10.0f;
+		float verticalSpacingBetweenTextAndSlider = 8.0f;
+		float bottomMargin = 6.0f;
+		float textLineHeight = ImGui::GetTextLineHeight(); // after PushFont if you use fonts
+
+		// Calculate the total required height for the bottom slider
+		float calculatedWindowHeight = 0.0f;
+		calculatedWindowHeight += topMargin;
+		calculatedWindowHeight += textLineHeight;
+		calculatedWindowHeight += verticalSpacingBetweenTextAndSlider;
+		calculatedWindowHeight += (ImGui::GetFontSize() + 2 * ImGui::GetStyle().FramePadding.y);
+		calculatedWindowHeight += bottomMargin;
+
 		// --- ImGui sidebar on the right ---
-		ImGui::SetNextWindowPos(ImVec2(width - 300, 0), ImGuiCond_Always);
-		ImGui::SetNextWindowSize(ImVec2(300, (float)height), ImGuiCond_Always);
+		ImGui::SetNextWindowPos(ImVec2((float)width - 300.0f, 0.0f), ImGuiCond_Always);
+		ImGui::SetNextWindowSize(ImVec2(300.0f, (float)height - calculatedWindowHeight), ImGuiCond_Always);
 		ImGui::Begin("Settings", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
 		bool logScale = g_populationBars->getLogScale();
 		if (ImGui::Checkbox("Logarithmic scale", &logScale)) {
 			g_populationBars->setLogScale(logScale);
 		}
-
 		ImGui::Checkbox("Animate camera around map", &animateCamera);
-
-		// Timelapse checkbox
 		static bool timelapse = false;
 		ImGui::Checkbox("Timelapse year", &timelapse);
-
 		if (ImGui::Button("Reset Camera") || glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS) {
 			camera.reset();
 		}
 		ImGui::Text("Camera controls:");
 		ImGui::BulletText("WASD: Move in view plane");
-		ImGui::BulletText("Arrow keys or Mouse drag: Rotate");
+		ImGui::BulletText("Arrow keys: Rotate");
 		ImGui::BulletText("Q/E: Up/Down");
 		ImGui::BulletText("R: Reset camera");
 		ImGui::End();
 
 		// --- ImGui bottom bar for year slider ---
-
-		// 1. Determine padding and font info (these are already set in your code)
-		// The FramePadding's Y component (32) is crucial for vertical sizing.
-		// This means elements with frames (like the slider) will have 32px top + 32px bottom padding.
-		// Total vertical padding for a framed item = 2 * FramePadding.y = 2 * 32 = 64 pixels.
-		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(34, 32)); // Y is 32
-
-		// Get text line height (approximate if font not loaded yet, or use GetTextLineHeight())
-		float textLineHeight = ImGui::GetTextLineHeight(); // This should be retrieved after PushFont if fonts are critical for size
-		// or a reasonable default value used.
-
-// Let's assume you want a certain vertical margin between elements and from window edges.
-		float topMargin = 32.0f; // This is your initial ImGui::SetCursorPosY(32);
-		float verticalSpacingBetweenTextAndSlider = 28.0f; // Calculated from (60 - 32)
-		float bottomMargin = 10.0f; // A desired margin at the bottom of the window
-
-		// Calculate the total required height
-		float calculatedWindowHeight = 0.0f;
-
-		// Height taken by the "Population Density Year" text
-		calculatedWindowHeight += topMargin; // Top margin for the text
-		calculatedWindowHeight += textLineHeight; // Height of the text itself
-
-		// Space between the text and the slider
-		calculatedWindowHeight += verticalSpacingBetweenTextAndSlider;
-
-		// Height taken by the slider
-		// The slider's visual height is its inherent height PLUS the frame padding (2 * ImGuiStyleVar_FramePadding.y)
-		// A common base height for a widget like a slider or button is ImGui::GetFrameHeight() or ImGui::GetFontSize() + 2*ImGuiStyleVar_FramePadding.y
-		// Given your PushStyleVar(..., 32) for FramePadding, the slider will be quite tall.
-		// The actual height of the slider grab handle and the line itself is smaller than the total frame height.
-		// A safe bet for a framed widget's height, considering frame padding:
-		calculatedWindowHeight += (ImGui::GetFontSize() + 2 * ImGui::GetStyle().FramePadding.y); // This uses the currently active FramePadding
-
-		// Add some bottom margin
-		calculatedWindowHeight += bottomMargin;
-
-
-		// Now, use this calculated height for your window
-		ImGui::SetNextWindowPos(ImVec2(0, height - calculatedWindowHeight), ImGuiCond_Always);
+		ImGui::SetNextWindowPos(ImVec2(0.0f, (float)height - calculatedWindowHeight), ImGuiCond_Always);
 		ImGui::SetNextWindowSize(ImVec2((float)width, calculatedWindowHeight), ImGuiCond_Always);
-		ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(60, 80, 180, 255));
-		ImGui::PushStyleColor(ImGuiCol_SliderGrab, IM_COL32(255, 180, 60, 255));
-		ImGui::PushStyleColor(ImGuiCol_SliderGrabActive, IM_COL32(255, 220, 100, 255));
+		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(34, 10));
 		ImGui::PushFont(io.Fonts->Fonts[0]);
 		ImGui::Begin("YearBar", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar);
-
-		// --- Content inside the window ---
-		// Your current cursor positions:
-		ImGui::SetCursorPosY(topMargin); // Start text at topMargin
+		ImGui::SetCursorPosY(topMargin);
 		ImGui::SetCursorPosX(40);
 		ImGui::Text("Population Density Year");
-
-		ImGui::SetCursorPosY(topMargin + textLineHeight + verticalSpacingBetweenTextAndSlider); // Position slider based on previous elements
+		ImGui::SetCursorPosY(topMargin + textLineHeight + verticalSpacingBetweenTextAndSlider);
 		ImGui::SetCursorPosX(40);
 		ImGui::PushItemWidth(width - 160);
 		sliderActive = ImGui::SliderInt("##YearSlider", &selectedYear, minYear, maxYear);
 		ImGui::PopItemWidth();
 		ImGui::SameLine();
-		// Make sure this text aligns with the slider, using the same Y position
 		ImGui::SetCursorPosY(topMargin + textLineHeight + verticalSpacingBetweenTextAndSlider);
 		ImGui::Text("%d", selectedYear);
 		ImGui::End();
 		ImGui::PopFont();
-		ImGui::PopStyleColor(3);
-		ImGui::PopStyleVar(); // Pop the style var AFTER the window is done rendering to apply to its calculations
+		ImGui::PopStyleVar();
 		g_populationBars->setYear(selectedYear);
 
 		// Timelapse logic
