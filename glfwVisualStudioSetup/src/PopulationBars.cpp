@@ -18,6 +18,7 @@ bool PopulationBars::loadFromCSV(const std::string& path) {
     }
     std::string line;
     std::getline(file, line); // skip header
+    std::vector<PopulationBarData> allBars; // For global max
     while (std::getline(file, line)) {
         std::stringstream ss(line);
         std::string name, code, yearStr, density, x, y;
@@ -34,9 +35,13 @@ bool PopulationBars::loadFromCSV(const std::string& path) {
         bar.y = std::stof(y);
         int year = std::stoi(yearStr);
         yearToBars[year].push_back(bar);
+        allBars.push_back(bar);
         if (year < minYear) minYear = year;
         if (year > maxYear) maxYear = year;
     }
+    // Compute global max density
+    globalMaxDensity = 0.0f;
+    for (const auto& bar : allBars) if (bar.density > globalMaxDensity) globalMaxDensity = bar.density;
     setYear(currentYear);
     return true;
 }
@@ -88,8 +93,7 @@ void PopulationBars::createBarGeometry() {
     // Instance data: model matrix (position, scale)
     instanceMatrices.clear();
     instanceHeights.clear();
-    float maxDensity = 0.0f;
-    for (const auto& bar : bars) if (bar.density > maxDensity) maxDensity = bar.density;
+    float maxDensity = globalMaxDensity > 0.0f ? globalMaxDensity : 1.0f;
     const float maxBarHeight = 1.5f;
     const float IMAGE_WIDTH = 4592.0f;
     const float IMAGE_HEIGHT = 3196.0f;

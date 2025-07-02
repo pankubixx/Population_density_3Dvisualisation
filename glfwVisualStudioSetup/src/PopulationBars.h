@@ -39,6 +39,7 @@ private:
     bool initialized = false;
     float mapWidth = 1.0f, mapHeight = 1.0f, mapThickness = 0.01f;
     bool logScale = true;
+    float globalMaxDensity = 0.0f;
     void createBarGeometry();
     bool createShaders();
 }; 
