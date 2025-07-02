@@ -83,6 +83,8 @@ int main()
 
 	while (!glfwWindowShouldClose(window))
 	{
+		static float timelapseYear = 0.0f;
+		static double lastTime = 0.0;
 		int width, height;
 		glfwGetFramebufferSize(window, &width, &height);
 		glViewport(0, 0, width, height);
@@ -165,6 +167,10 @@ int main()
 
 		ImGui::Checkbox("Animate camera around map", &animateCamera);
 
+		// Timelapse checkbox
+		static bool timelapse = false;
+		ImGui::Checkbox("Timelapse year", &timelapse);
+
 		if (ImGui::Button("Reset Camera") || glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS) {
 			camera.reset();
 		}
@@ -243,6 +249,26 @@ int main()
 		ImGui::PopStyleColor(3);
 		ImGui::PopStyleVar(); // Pop the style var AFTER the window is done rendering to apply to its calculations
 		g_populationBars->setYear(selectedYear);
+
+		// Timelapse logic
+		double currentTime = glfwGetTime();
+		float timelapseSpeed = 5.0f; // years per second
+		static bool prevTimelapse = false;
+		if (timelapse && !prevTimelapse) {
+			timelapseYear = static_cast<float>(minYear);
+			selectedYear = minYear;
+		}
+		prevTimelapse = timelapse;
+		if (timelapse && !sliderActive) {
+			float delta = static_cast<float>(currentTime - lastTime);
+			lastTime = currentTime;
+			timelapseYear += timelapseSpeed * delta;
+			if (timelapseYear > static_cast<float>(maxYear) + 0.999f) timelapseYear = static_cast<float>(minYear);
+			selectedYear = static_cast<int>(timelapseYear);
+		} else {
+			lastTime = currentTime;
+			timelapseYear = static_cast<float>(selectedYear);
+		}
 
 		// --- Picking ---
 		double mouseX, mouseY;
