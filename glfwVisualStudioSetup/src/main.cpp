@@ -135,8 +135,8 @@ int main()
 
 		// --- Camera controls ---
 		bool blockCamera = sliderActive;
-		float moveSpeed = 0.05f;
-		float rotSpeed = 0.02f;
+		float moveSpeed = 0.01f;
+		float rotSpeed = 0.005f;
 		glm::vec3 forward = glm::normalize(glm::vec3(
 			cos(camera.pitch) * sin(camera.yaw),
 			cos(camera.pitch) * cos(camera.yaw),
@@ -149,7 +149,7 @@ int main()
 		static float animationTime = 0.0f;
 		static bool animateCamera = false;
 		if (animateCamera) {
-			animationTime += 0.003f; // Speed of animation
+			animationTime += 0.001f; // Speed of animation
 			float radius = 4.0f; // Distance from map center
 			float height = 2.0f; // Height above map
 			glm::vec3 mapCenter = glm::vec3(0.0f, 0.0f, 0.0f);
